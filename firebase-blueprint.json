@@ -1,0 +1,108 @@
+{
+  "collections": [
+    {
+      "name": "metadata",
+      "description": "Single-instance metadata and configuration",
+      "documents": [
+        {
+          "id": "profile",
+          "fields": [
+            { "name": "title", "type": "string" },
+            { "name": "description", "type": "string" }
+          ]
+        },
+        {
+          "id": "contact",
+          "fields": [
+            { "name": "address", "type": "string" },
+            { "name": "phone", "type": "string" },
+            { "name": "email", "type": "string" },
+            { "name": "facebook", "type": "string" },
+            { "name": "linkedin", "type": "string" },
+            { "name": "whatsapp", "type": "string" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "companies",
+      "description": "List of affiliated companies",
+      "documents": [
+        {
+          "id": "wildcard",
+          "fields": [
+            { "name": "name", "type": "string" },
+            { "name": "description", "type": "string" },
+            { "name": "imageUrl", "type": "string" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "events",
+      "description": "Scheduled events",
+      "documents": [
+        {
+          "id": "wildcard",
+          "fields": [
+            { "name": "title", "type": "string" },
+            { "name": "description", "type": "string" },
+            { "name": "date", "type": "string" },
+            { "name": "location", "type": "string" },
+            { "name": "imageUrl", "type": "string" },
+            { "name": "order", "type": "number" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "members",
+      "description": "Team members",
+      "documents": [
+        {
+          "id": "wildcard",
+          "fields": [
+            { "name": "name", "type": "string" },
+            { "name": "role", "type": "string" },
+            { "name": "department", "type": "string" },
+            { "name": "imageUrl", "type": "string" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "news",
+      "description": "News articles",
+      "documents": [
+        {
+          "id": "wildcard",
+          "fields": [
+            { "name": "title", "type": "string" },
+            { "name": "summary", "type": "string" },
+            { "name": "content", "type": "string" },
+            { "name": "date", "type": "string" },
+            { "name": "category", "type": "string" },
+            { "name": "imageUrl", "type": "string" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "jobs",
+      "description": "Job openings",
+      "documents": [
+        {
+          "id": "wildcard",
+          "fields": [
+            { "name": "title", "type": "string" },
+            { "name": "department", "type": "string" },
+            { "name": "location", "type": "string" },
+            { "name": "type", "type": "string" },
+            { "name": "description", "type": "string" },
+            { "name": "requirements", "type": "array" }
+          ]
+        }
+      ]
+    }
+  ]
+}
