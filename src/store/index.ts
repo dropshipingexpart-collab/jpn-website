@@ -5,13 +5,10 @@ import { get, set, del } from "idb-keyval";
 const CHUNK_SIZE = 800000;
 
 let timeoutId: any = null;
-let quotaExceeded = typeof window !== 'undefined' && localStorage.getItem("firestore_quota_exceeded") === "true";
+let quotaExceeded = false;
 
 const setQuotaExceeded = (value: boolean) => {
   quotaExceeded = value;
-  if (typeof window !== 'undefined') {
-    localStorage.setItem("firestore_quota_exceeded", String(value));
-  }
 };
 
 const getFirebase = async () => {
@@ -23,12 +20,11 @@ const getFirebase = async () => {
 
 const syncToFirestore = async (name: string, value: string, timestamp: number) => {
   try {
-    // Sanitize the stored state to ensure the public Firestore DB never leaves a user session active as admin.
     let cleanedValue = value;
     try {
       const parsed = JSON.parse(value);
       if (parsed && parsed.state) {
-        parsed.state.isAdminAuth = false; // Never persist logged-in state to public Firestore
+        parsed.state.isAdminAuth = false;
         cleanedValue = JSON.stringify(parsed);
       }
     } catch (e) {
@@ -50,7 +46,7 @@ const syncToFirestore = async (name: string, value: string, timestamp: number) =
       await setDoc(docRef, { value: cleanedValue, timestamp });
     }
   } catch (e: any) {
-    if (e?.code === 'resource-exhausted' || e?.message?.includes('quota')) {
+    if (e?.code === 'resource-exhausted' || e?.message?.includes('quota') || e?.message === 'quota-exceeded') {
       console.warn("Firestore quota hit, disabling remote sync.");
       setQuotaExceeded(true);
     } else {
@@ -100,7 +96,6 @@ const storage: StateStorage = {
             let remoteValue = data.value || null;
             const remoteTimestamp = data.timestamp || 0;
             
-            // Re-fetch our local timestamp to compare against incoming
             let currentLocalTimestamp = 0;
             try {
               const currentLocalObj = await get(name);
@@ -134,7 +129,21 @@ const storage: StateStorage = {
                    window.dispatchEvent(new CustomEvent('remote-sync-update'));
                  }
               }
+            } else if (currentLocalTimestamp > remoteTimestamp) {
+              try {
+                const currentLocalObj = await get(name);
+                if (currentLocalObj && currentLocalObj.value) {
+                  syncToFirestore(name, currentLocalObj.value, currentLocalTimestamp);
+                }
+              } catch(e) {}
             }
+          } else {
+            try {
+              const currentLocalObj = await get(name);
+              if (currentLocalObj && currentLocalObj.value && currentLocalObj.timestamp) {
+                syncToFirestore(name, currentLocalObj.value, currentLocalObj.timestamp);
+              }
+            } catch(e) {}
           }
         }, (e: any) => {
           if (e?.code === 'resource-exhausted' || e?.message?.includes('quota') || e?.message === 'quota-exceeded') {
@@ -156,12 +165,9 @@ const storage: StateStorage = {
     };
 
     if (localValue) {
-      // If we have a local cached value, return it instantly! Defer background sync check by 4 seconds
-      // so the page load is completely free of heavy Firebase imports and network connections.
-      setTimeout(runSync, 4000);
+      setTimeout(runSync, 2000);
       return localValue;
     } else {
-      // First-time visit: run sync immediately to pull remote data as fast as possible
       runSync();
       return null;
     }
@@ -180,16 +186,13 @@ const storage: StateStorage = {
       isAdmin = !!parsed?.state?.isAdminAuth;
     } catch (e) {}
 
-    // ONLY sync to Firestore if the change was made by a logged-in Admin!
-    // This blocks guest visits or automatic initializations from performing Firestore writes,
-    // which completely solves the Firestore daily write quota exhaustion and security leaks.
     if (isAdmin) {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
       timeoutId = setTimeout(() => {
         syncToFirestore(name, value, timestamp);
-      }, 2500);
+      }, 1000);
     }
   },
   removeItem: async (name: string): Promise<void> => {
@@ -197,25 +200,6 @@ const storage: StateStorage = {
       await del(name);
     } catch (e) {
       console.warn("IDB del failed:", e);
-    }
-    try {
-      const { db, doc, getDoc, deleteDoc } = await getFirebase();
-      const docRef = doc(db, "app_state", name);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists() && docSnap.data().isChunked) {
-        const chunks = docSnap.data().chunks;
-        for (let i = 0; i < chunks; i++) {
-          await deleteDoc(doc(db, "app_state", `${name}_chunk_${i}`));
-        }
-      }
-      await deleteDoc(docRef);
-    } catch (e: any) {
-      if (e?.code === 'resource-exhausted' || e?.message?.includes('quota') || e?.message === 'quota-exceeded') {
-        console.warn("Firestore quota hit, disabling remote sync.");
-        setQuotaExceeded(true);
-      } else {
-        console.error("Firestore removeItem error:", e);
-      }
     }
   },
 };
